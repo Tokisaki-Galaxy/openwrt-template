@@ -135,6 +135,91 @@ jobs:
             echo "Network connectivity: Restricted or no internet access"
           fi
           
+          # Test 6: Test complete LuCI environment startup (critical for plugin debugging)
+          echo "Test 6: Testing complete LuCI environment startup..."
+          echo "This validates the correct service startup order: ubusd → procd → rpcd → uhttpd"
+          
+          CONTAINER_NAME="openwrt-luci-test-$$"
+          
+          # Start container with all services in correct order
+          docker run -d --name "$CONTAINER_NAME" -p 8080:80 openwrt/rootfs:x86-64-23.05.5 /bin/ash -c '
+            mkdir -p /var/lock /var/run
+            opkg update && opkg install luci luci-base luci-compat
+            # Critical: Start services in correct order
+            /sbin/ubusd &
+            sleep 1
+            /sbin/procd &
+            sleep 2
+            /sbin/rpcd &
+            sleep 1
+            /usr/sbin/uhttpd -f -h /www -r OpenWrt -x /cgi-bin -u /ubus -t 60 -T 30 -A 1 -n 3 -N 100 -R -p 0.0.0.0:80 &
+            # Set password
+            echo -e "password\npassword" | passwd root
+            # Configure theme
+            uci set luci.themes.Bootstrap=/luci-static/bootstrap && uci commit luci
+            tail -f /dev/null
+          '
+          
+          # Wait for container to be ready
+          echo "Waiting for LuCI to be ready..."
+          MAX_RETRIES=10
+          COUNT=0
+          SUCCESS=0
+          while [ $COUNT -lt $MAX_RETRIES ]; do
+            # Check HTTP status code: 200, 302 (redirect to login), 403 (auth required) = service is up
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ] || [ "$HTTP_CODE" = "403" ]; then
+              echo "LuCI is ready (HTTP $HTTP_CODE)"
+              SUCCESS=1
+              break
+            fi
+            echo "Waiting for LuCI... ($((COUNT+1))/$MAX_RETRIES) [HTTP: $HTTP_CODE]"
+            sleep 5
+            COUNT=$((COUNT+1))
+          done
+          
+          if [ $SUCCESS -eq 0 ]; then
+             echo "Timeout waiting for LuCI to be ready"
+             docker logs "$CONTAINER_NAME"
+             exit 1
+          fi
+          
+          # Verify critical services are running
+          echo "Verifying services..."
+          docker exec "$CONTAINER_NAME" ps | grep -E "ubusd|procd|rpcd|uhttpd" || {
+            echo "ERROR: Not all services are running"
+            docker logs "$CONTAINER_NAME"
+            docker rm -f "$CONTAINER_NAME"
+            exit 1
+          }
+          
+          # Verify ubus services (especially 'system' which is provided by procd)
+          echo "Verifying ubus services..."
+          if docker exec "$CONTAINER_NAME" ubus list | grep -q "system"; then
+            echo "SUCCESS: 'system' ubus service is available (procd is working)"
+          else
+            echo "ERROR: 'system' ubus service not found - procd may not be running correctly"
+            docker exec "$CONTAINER_NAME" ubus list
+            docker rm -f "$CONTAINER_NAME"
+            exit 1
+          fi
+          
+          # Verify LuCI web interface responds
+          echo "Verifying LuCI web interface..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/cgi-bin/luci/ || echo "000")
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "403" ]; then
+            echo "SUCCESS: LuCI web interface responds with HTTP $HTTP_CODE"
+          else
+            echo "ERROR: LuCI web interface not responding (HTTP $HTTP_CODE)"
+            docker logs "$CONTAINER_NAME"
+            docker rm -f "$CONTAINER_NAME"
+            exit 1
+          fi
+          
+          # Cleanup
+          docker rm -f "$CONTAINER_NAME"
+          echo "LuCI environment test completed successfully!"
+          
           echo "=== All Docker communication tests completed successfully ==="
 
       - name: Install dependencies
