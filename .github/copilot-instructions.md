@@ -16,10 +16,10 @@
       docker run -it --rm openwrtorg/rootfs:x86-64 /bin/ash
       
       # 挂载本地插件目录进行测试
-      docker run -it --rm -v $(pwd)/mypackage:/root/mypackage openwrtorg/rootfs:x86-64 /bin/ash
+      docker run -it --rm -v "$(pwd)/mypackage":/root/mypackage openwrtorg/rootfs:x86-64 /bin/ash
       
       # 在容器内安装和测试 ipk 包
-      docker run -it --rm -v $(pwd):/packages openwrtorg/rootfs:x86-64 sh -c "opkg install /packages/*.ipk && <test_command>"
+      docker run -it --rm -v "$(pwd)":/packages openwrtorg/rootfs:x86-64 sh -c "opkg install /packages/*.ipk && <test_command>"
       ```
  - **代码校验与格式化**：
     - 环境已通过 `tsc` 类型检查和 `eslint` 代码检查。

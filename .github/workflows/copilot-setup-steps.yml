@@ -73,7 +73,7 @@ jobs:
 
       - name: Verify OpenWrt Docker Image
         run: |
-          docker images | grep openwrt || echo "OpenWrt image loaded"
+          docker images openwrtorg/rootfs:x86-64 --format "{{.Repository}}:{{.Tag}}" | grep -q "openwrtorg/rootfs:x86-64" && echo "OpenWrt Docker image verified successfully" || (echo "ERROR: OpenWrt Docker image not found" && exit 1)
           echo "OpenWrt Docker environment ready for plugin debugging"
 
       - name: Install dependencies
