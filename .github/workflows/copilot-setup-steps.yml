@@ -45,7 +45,6 @@ jobs:
             gettext \
             libncurses5-dev \
             libssl-dev \
-            python3-distutils \
             rsync \
             unzip \
             zlib1g-dev \
@@ -75,6 +74,53 @@ jobs:
         run: |
           docker images openwrtorg/rootfs:x86-64 --format "{{.Repository}}:{{.Tag}}" | grep -q "openwrtorg/rootfs:x86-64" && echo "OpenWrt Docker image verified successfully" || (echo "ERROR: OpenWrt Docker image not found" && exit 1)
           echo "OpenWrt Docker environment ready for plugin debugging"
+
+      - name: Test Docker Communication
+        run: |
+          echo "=== Testing Docker container communication ==="
+          
+          # Test 1: Basic container execution
+          echo "Test 1: Running basic command in OpenWrt container..."
+          docker run --rm openwrtorg/rootfs:x86-64 /bin/ash -c "echo 'Hello from OpenWrt container!'"
+          
+          # Test 2: Check OpenWrt version
+          echo "Test 2: Checking OpenWrt version..."
+          docker run --rm openwrtorg/rootfs:x86-64 /bin/ash -c "cat /etc/openwrt_release"
+          
+          # Test 3: Test volume mounting with content verification
+          echo "Test 3: Testing volume mount..."
+          TEST_CONTENT="test_content_$(date +%s)"
+          TEST_FILE="/tmp/test_mount_$$_$RANDOM.txt"
+          echo "$TEST_CONTENT" > "$TEST_FILE"
+          RESULT=$(docker run --rm -v "$TEST_FILE":/root/test_mount.txt openwrtorg/rootfs:x86-64 /bin/ash -c "cat /root/test_mount.txt")
+          rm -f "$TEST_FILE"
+          if [ "$RESULT" = "$TEST_CONTENT" ]; then
+            echo "Volume mount test passed: content matches"
+          else
+            echo "ERROR: Volume mount test failed - content mismatch"
+            echo "Expected: $TEST_CONTENT"
+            echo "Got: $RESULT"
+            exit 1
+          fi
+          
+          # Test 4: Test opkg package manager (graceful handling)
+          echo "Test 4: Testing opkg package manager..."
+          if docker run --rm openwrtorg/rootfs:x86-64 /bin/ash -c "opkg update"; then
+            echo "opkg update succeeded"
+            docker run --rm openwrtorg/rootfs:x86-64 /bin/ash -c "opkg list | head -20"
+          else
+            echo "Note: opkg update failed (may be due to network restrictions in CI), but container is functional"
+          fi
+          
+          # Test 5: Test network connectivity from container (informational only)
+          echo "Test 5: Testing network inside container (informational)..."
+          if docker run --rm openwrtorg/rootfs:x86-64 /bin/ash -c "ping -c 2 8.8.8.8 2>/dev/null"; then
+            echo "Network connectivity: Available"
+          else
+            echo "Network connectivity: Limited or restricted (this is acceptable in CI environments)"
+          fi
+          
+          echo "=== All Docker communication tests completed successfully ==="
 
       - name: Install dependencies
         run: |
