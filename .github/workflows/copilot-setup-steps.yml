@@ -57,13 +57,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/openwrt-docker-image.tar
-          key: openwrt-docker-${{ runner.os }}-openwrtorg-rootfs-x86-64
+          key: openwrt-docker-${{ runner.os }}-openwrt-rootfs-x86-64
 
       - name: Pull and Save OpenWrt Docker Image
         if: steps.cache-openwrt-docker.outputs.cache-hit != 'true'
         run: |
-          docker pull openwrtorg/rootfs:x86-64
-          docker save openwrtorg/rootfs:x86-64 -o /tmp/openwrt-docker-image.tar
+          docker pull openwrt/rootfs:x86-64
+          docker save openwrt/rootfs:x86-64 -o /tmp/openwrt-docker-image.tar
 
       - name: Load OpenWrt Docker Image from Cache
         if: steps.cache-openwrt-docker.outputs.cache-hit == 'true'
@@ -72,7 +72,7 @@ jobs:
 
       - name: Verify OpenWrt Docker Image
         run: |
-          docker images openwrtorg/rootfs:x86-64 --format "{{.Repository}}:{{.Tag}}" | grep -q "openwrtorg/rootfs:x86-64" && echo "OpenWrt Docker image verified successfully" || (echo "ERROR: OpenWrt Docker image not found" && exit 1)
+          docker images openwrt/rootfs:x86-64 --format "{{.Repository}}:{{.Tag}}" | grep -q "openwrt/rootfs:x86-64" && echo "OpenWrt Docker image verified successfully" || (echo "ERROR: OpenWrt Docker image not found" && exit 1)
           echo "OpenWrt Docker environment ready for plugin debugging"
 
       - name: Test Docker Communication
@@ -81,18 +81,18 @@ jobs:
           
           # Test 1: Basic container execution
           echo "Test 1: Running basic command in OpenWrt container..."
-          docker run --rm openwrtorg/rootfs:x86-64 /bin/ash -c "echo 'Hello from OpenWrt container!'"
+          docker run --rm openwrt/rootfs:x86-64 /bin/ash -c "echo 'Hello from OpenWrt container!'"
           
           # Test 2: Check OpenWrt version
           echo "Test 2: Checking OpenWrt version..."
-          docker run --rm openwrtorg/rootfs:x86-64 /bin/ash -c "cat /etc/openwrt_release"
+          docker run --rm openwrt/rootfs:x86-64 /bin/ash -c "cat /etc/openwrt_release"
           
           # Test 3: Test volume mounting with content verification
           echo "Test 3: Testing volume mount..."
           TEST_CONTENT="test_content_$(date +%s)"
           TEST_FILE="/tmp/test_mount_$$_$RANDOM.txt"
           echo "$TEST_CONTENT" > "$TEST_FILE"
-          RESULT=$(docker run --rm -v "$TEST_FILE":/root/test_mount.txt openwrtorg/rootfs:x86-64 /bin/ash -c "cat /root/test_mount.txt")
+          RESULT=$(docker run --rm -v "$TEST_FILE":/root/test_mount.txt openwrt/rootfs:x86-64 /bin/ash -c "cat /root/test_mount.txt")
           rm -f "$TEST_FILE"
           if [ "$RESULT" = "$TEST_CONTENT" ]; then
             echo "Volume mount test passed: content matches"
@@ -105,16 +105,16 @@ jobs:
           
           # Test 4: Test opkg package manager (graceful handling)
           echo "Test 4: Testing opkg package manager..."
-          if docker run --rm openwrtorg/rootfs:x86-64 /bin/ash -c "opkg update"; then
+          if docker run --rm openwrt/rootfs:x86-64 /bin/ash -c "opkg update"; then
             echo "opkg update succeeded"
-            docker run --rm openwrtorg/rootfs:x86-64 /bin/ash -c "opkg list | head -20"
+            docker run --rm openwrt/rootfs:x86-64 /bin/ash -c "opkg list | head -20"
           else
             echo "Note: opkg update failed (may be due to network restrictions in CI), but container is functional"
           fi
           
           # Test 5: Test network connectivity from container (informational only)
           echo "Test 5: Testing network inside container (informational)..."
-          if docker run --rm openwrtorg/rootfs:x86-64 /bin/ash -c "ping -c 2 8.8.8.8 2>/dev/null"; then
+          if docker run --rm openwrt/rootfs:x86-64 /bin/ash -c "ping -c 2 8.8.8.8 2>/dev/null"; then
             echo "Network connectivity: Available"
           else
             echo "Network connectivity: Limited or restricted (this is acceptable in CI environments)"
