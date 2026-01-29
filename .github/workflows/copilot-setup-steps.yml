@@ -64,13 +64,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/openwrt-docker-image.tar
-          key: openwrt-docker-${{ runner.os }}-openwrt-rootfs-x86-64
+          key: openwrt-docker-${{ runner.os }}-openwrt-rootfs-x86-64-23.05.5
 
       - name: Pull and Save OpenWrt Docker Image
         if: steps.cache-openwrt-docker.outputs.cache-hit != 'true'
         run: |
-          docker pull openwrt/rootfs:x86-64
-          docker save openwrt/rootfs:x86-64 -o /tmp/openwrt-docker-image.tar
+          docker pull openwrt/rootfs:x86-64-23.05.5
+          docker save openwrt/rootfs:x86-64-23.05.5 -o /tmp/openwrt-docker-image.tar
 
       - name: Load OpenWrt Docker Image from Cache
         if: steps.cache-openwrt-docker.outputs.cache-hit == 'true'
@@ -79,27 +79,27 @@ jobs:
 
       - name: Verify OpenWrt Docker Image
         run: |
-          docker images openwrt/rootfs:x86-64 --format "{{.Repository}}:{{.Tag}}" | grep -q "openwrt/rootfs:x86-64" && echo "OpenWrt Docker image verified successfully" || (echo "ERROR: OpenWrt Docker image not found" && exit 1)
+          docker images openwrt/rootfs:x86-64-23.05.5 --format "{{.Repository}}:{{.Tag}}" | grep -q "openwrt/rootfs:x86-64-23.05.5" && echo "OpenWrt Docker image verified successfully" || (echo "ERROR: OpenWrt Docker image not found" && exit 1)
           echo "OpenWrt Docker environment ready for plugin debugging"
 
       - name: Test Docker Communication
         run: |
           echo "=== Testing Docker container communication ==="
-          
+
           # Test 1: Basic container execution
           echo "Test 1: Running basic command in OpenWrt container..."
-          docker run --rm openwrt/rootfs:x86-64 /bin/ash -c "echo 'Hello from OpenWrt container!'"
+          docker run --rm openwrt/rootfs:x86-64-23.05.5 /bin/ash -c "echo 'Hello from OpenWrt container!'"
           
           # Test 2: Check OpenWrt version
           echo "Test 2: Checking OpenWrt version..."
-          docker run --rm openwrt/rootfs:x86-64 /bin/ash -c "cat /etc/openwrt_release"
+          docker run --rm openwrt/rootfs:x86-64-23.05.5 /bin/ash -c "cat /etc/openwrt_release"
           
           # Test 3: Test volume mounting with content verification
           echo "Test 3: Testing volume mount..."
           TEST_CONTENT="test_content_$(date +%s)"
           TEST_FILE="/tmp/test_mount_$$_$RANDOM.txt"
           echo "$TEST_CONTENT" > "$TEST_FILE"
-          RESULT=$(docker run --rm -v "$TEST_FILE":/root/test_mount.txt openwrt/rootfs:x86-64 /bin/ash -c "cat /root/test_mount.txt")
+          RESULT=$(docker run --rm -v "$TEST_FILE":/root/test_mount.txt openwrt/rootfs:x86-64-23.05.5 /bin/ash -c "cat /root/test_mount.txt")
           rm -f "$TEST_FILE"
           if [ "$RESULT" = "$TEST_CONTENT" ]; then
             echo "Volume mount test passed: content matches"
@@ -112,23 +112,23 @@ jobs:
           
           # Test 4: Test opkg package manager (with initialization)
           echo "Test 4: Testing opkg package manager..."
-          # Some rootfs images require manual initialization for opkg
-          OPKG_INIT="[ -f /setup.sh ] && /setup.sh; mkdir -p /var/lock/; opkg update"
-          if docker run --rm openwrt/rootfs:x86-64 /bin/ash -c "$OPKG_INIT"; then
+          # Even rigid stable versions might miss /var/lock for opkg
+          OPKG_INIT="mkdir -p /var/lock/; opkg update"
+          if docker run --rm openwrt/rootfs:x86-64-23.05.5 /bin/ash -c "$OPKG_INIT"; then
             echo "opkg update succeeded"
-            docker run --rm openwrt/rootfs:x86-64 /bin/ash -c "opkg list | head -20"
+            docker run --rm openwrt/rootfs:x86-64-23.05.5 /bin/ash -c "opkg list | head -20"
           else
             echo "Note: opkg update failed, checking if opkg exists..."
-            docker run --rm openwrt/rootfs:x86-64 /bin/ash -c "which opkg || echo 'opkg not found in PATH'"
+            docker run --rm openwrt/rootfs:x86-64-23.05.5 /bin/ash -c "which opkg || echo 'opkg not found in PATH'"
+            exit 1 # Fail explicitly if stable image fails opkg
           fi
           
           # Test 5: Test network connectivity from container (via HTTP/TCP)
           echo "Test 5: Testing network connectivity via HTTP..."
-          if docker run --rm openwrt/rootfs:x86-64 /bin/ash -c "wget -q --spider http://www.google.com"; then
+          if docker run --rm openwrt/rootfs:x86-64-23.05.5 /bin/ash -c "wget -q --spider http://www.google.com"; then
             echo "Network connectivity: Available (TCP/HTTP)"
           else
             echo "Network connectivity: Restricted or no internet access"
-            # We don't exit 1 here as some CI environments might indeed have no outward access
           fi
           
           echo "=== All Docker communication tests completed successfully ==="
