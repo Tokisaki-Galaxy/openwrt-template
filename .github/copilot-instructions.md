@@ -6,7 +6,7 @@
     - `ripgrep` (高性能文本搜索)
     - **Playwright (Chromium)**：优先用于验证渲染、执行 E2E 测试或查看动态内容。
  - **OpenWrt 调试环境**：
-    - **Docker 镜像**：已预装并缓存 `immortalwrt/rootfs:x86-64` 镜像（包含完整的 `opkg` 源）。
+    - **Docker 镜像**：已预装并缓存 `openwrt/rootfs:x86-64` 镜像（包含完整的 `opkg` 源）。
     - **LuCI 源码**：项目根目录下已克隆 `openwrt/luci` 仓库 (depth=1)，用于同步 `.po` 翻译文件。
     - **跨架构支持**：`qemu-user-static` 和 `binfmt-support` 用于模拟不同 CPU 架构
     - **编译工具链**：`build-essential`, `ccache`, `gawk`, `gettext`, `libncurses5-dev`, `libssl-dev`, `rsync`, `unzip`, `zlib1g-dev`
@@ -14,13 +14,14 @@
     - **使用方式**：
       ```bash
       # 启动 OpenWrt 容器进行插件调试
-      docker run -it --rm immortalwrt/rootfs:x86-64 /bin/ash
+      docker run -it --rm openwrt/rootfs:x86-64 /bin/ash
       
       # 挂载本地插件目录进行测试
-      docker run -it --rm -v "$(pwd)/mypackage":/root/mypackage immortalwrt/rootfs:x86-64 /bin/ash
+      docker run -it --rm -v "$(pwd)/mypackage":/root/mypackage openwrt/rootfs:x86-64 /bin/ash
       
       # 启动带 Web 界面的 LuCI 环境 (映射到宿主机 8080 端口)
-      docker run -it --rm -p 8080:80 immortalwrt/rootfs:x86-64 /bin/ash -c "
+      docker run -it --rm -p 8080:80 openwrt/rootfs:x86-64 /bin/ash -c "
+        [ -f /setup.sh ] && ./setup.sh; mkdir -p /var/lock/ && \
         opkg update && opkg install luci luci-base luci-compat && \
         uci set uhttpd.main.listen_http='0.0.0.0:80' && uci commit uhttpd && \
         /etc/init.d/rpcd start && /etc/init.d/uhttpd start && \
