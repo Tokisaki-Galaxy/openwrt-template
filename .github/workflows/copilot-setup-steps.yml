@@ -110,17 +110,21 @@ jobs:
             exit 1
           fi
           
-          # Test 4: Test opkg package manager (with initialization)
+          # Test 4: Test opkg package manager (with initialization and installation)
           echo "Test 4: Testing opkg package manager..."
-          # Even rigid stable versions might miss /var/lock for opkg
-          OPKG_INIT="mkdir -p /var/lock/; opkg update"
-          if docker run --rm openwrt/rootfs:x86-64-23.05.5 /bin/ash -c "$OPKG_INIT"; then
-            echo "opkg update succeeded"
-            docker run --rm openwrt/rootfs:x86-64-23.05.5 /bin/ash -c "opkg list | head -20"
+          # 1. Create /var/lock to prevent "Could not create lock file" errors
+          # 2. Run update to populate package lists
+          # 3. Install a small package ('file') to verify installation works
+          # All running in the same container shell to persist state
+          OPKG_TEST_CMD="mkdir -p /var/lock/ && opkg update && opkg install file && which file && echo 'Package installation verified!'"
+          
+          if docker run --rm openwrt/rootfs:x86-64-23.05.5 /bin/ash -c "$OPKG_TEST_CMD"; then
+            echo "opkg update and install succeeded"
+            # Optional: List installed packages to show 'file' is there
+            # docker run --rm openwrt/rootfs:x86-64-23.05.5 /bin/ash -c "mkdir -p /var/lock/ && opkg list-installed | grep file" 
           else
-            echo "Note: opkg update failed, checking if opkg exists..."
-            docker run --rm openwrt/rootfs:x86-64-23.05.5 /bin/ash -c "which opkg || echo 'opkg not found in PATH'"
-            exit 1 # Fail explicitly if stable image fails opkg
+            echo "Note: opkg test failed"
+            exit 1 
           fi
           
           # Test 5: Test network connectivity from container (via HTTP/TCP)
