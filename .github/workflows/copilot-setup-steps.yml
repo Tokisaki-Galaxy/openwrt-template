@@ -30,6 +30,52 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq xvfb tree ripgrep
 
+      # OpenWrt Docker 环境配置
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install OpenWrt Debug Tools
+        run: |
+          sudo apt-get install -y \
+            qemu-user-static \
+            binfmt-support \
+            build-essential \
+            ccache \
+            gawk \
+            gettext \
+            libncurses5-dev \
+            libssl-dev \
+            python3-distutils \
+            rsync \
+            unzip \
+            zlib1g-dev \
+            sshpass \
+            socat \
+            netcat-openbsd
+
+      - name: Cache OpenWrt Docker Image
+        id: cache-openwrt-docker
+        uses: actions/cache@v4
+        with:
+          path: /tmp/openwrt-docker-image.tar
+          key: openwrt-docker-${{ runner.os }}-openwrtorg-rootfs-x86-64
+
+      - name: Pull and Save OpenWrt Docker Image
+        if: steps.cache-openwrt-docker.outputs.cache-hit != 'true'
+        run: |
+          docker pull openwrtorg/rootfs:x86-64
+          docker save openwrtorg/rootfs:x86-64 -o /tmp/openwrt-docker-image.tar
+
+      - name: Load OpenWrt Docker Image from Cache
+        if: steps.cache-openwrt-docker.outputs.cache-hit == 'true'
+        run: |
+          docker load -i /tmp/openwrt-docker-image.tar
+
+      - name: Verify OpenWrt Docker Image
+        run: |
+          docker images | grep openwrt || echo "OpenWrt image loaded"
+          echo "OpenWrt Docker environment ready for plugin debugging"
+
       - name: Install dependencies
         run: |
           if [ -f package.json ]; then

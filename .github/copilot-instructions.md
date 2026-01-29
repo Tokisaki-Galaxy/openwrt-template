@@ -5,6 +5,22 @@
     - `tree` (查看目录结构)
     - `ripgrep` (高性能文本搜索)
     - **Playwright (Chromium)**：优先用于验证渲染、执行 E2E 测试或查看动态内容。
+ - **OpenWrt 调试环境**：
+    - **Docker 镜像**：已预装并缓存 `openwrtorg/rootfs:x86-64` 最小化 OpenWrt 镜像
+    - **跨架构支持**：`qemu-user-static` 和 `binfmt-support` 用于模拟不同 CPU 架构
+    - **编译工具链**：`build-essential`, `ccache`, `gawk`, `gettext`, `libncurses5-dev`, `libssl-dev`, `rsync`, `unzip`, `zlib1g-dev`
+    - **网络调试工具**：`socat`, `netcat-openbsd`, `sshpass`
+    - **使用方式**：
+      ```bash
+      # 启动 OpenWrt 容器进行插件调试
+      docker run -it --rm openwrtorg/rootfs:x86-64 /bin/ash
+      
+      # 挂载本地插件目录进行测试
+      docker run -it --rm -v $(pwd)/mypackage:/root/mypackage openwrtorg/rootfs:x86-64 /bin/ash
+      
+      # 在容器内安装和测试 ipk 包
+      docker run -it --rm -v $(pwd):/packages openwrtorg/rootfs:x86-64 sh -c "opkg install /packages/*.ipk && <test_command>"
+      ```
  - **代码校验与格式化**：
     - 环境已通过 `tsc` 类型检查和 `eslint` 代码检查。
     - **Prettier**：在提交或运行测试前，可以使用 `npx prettier --write .` 修复格式。
