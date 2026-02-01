@@ -6,7 +6,7 @@
     - `ripgrep` (高性能文本搜索)
     - **Playwright (Chromium)**：优先用于验证渲染、执行 E2E 测试或查看动态内容。
  - **OpenWrt 调试环境**：
-   - **Docker 镜像**：已预装并缓存 `openwrt/rootfs:x86-64-25.12.0-rc4` 镜像（运行前需执行 `./setup.sh` 以下载 `opkg` 源）。
+    - **Docker 镜像**：已预装并缓存 `openwrt/rootfs:x86-64-25.12.0-rc4` 镜像（运行前需执行 `/setup.sh` 以下载 `opkg` 源）。
     - **LuCI 源码**：项目根目录下已克隆 `openwrt/luci` 仓库 (depth=1)，用于同步 `.po` 翻译文件。
     - **跨架构支持**：`qemu-user-static` 和 `binfmt-support` 用于模拟不同 CPU 架构
     - **编译工具链**：`build-essential`, `ccache`, `gawk`, `gettext`, `libncurses5-dev`, `libssl-dev`, `rsync`, `unzip`, `zlib1g-dev`
@@ -25,7 +25,7 @@ LuCI Web界面依赖多个服务，**必须按以下顺序启动**：
 # 方式1：后台启动容器后手动启动服务（推荐用于调试）
 docker run -d --name openwrt-luci -p 8080:80 openwrt/rootfs:x86-64-25.12.0-rc4 tail -f /dev/null
 # 进入容器安装 LuCI
-docker exec openwrt-luci sh -c "mkdir -p /var/lock /var/run && [ -x ./setup.sh ] && ./setup.sh && opkg update && opkg install luci luci-base luci-compat"
+docker exec openwrt-luci sh -c "mkdir -p /var/lock /var/run && if [ -x /setup.sh ]; then /setup.sh; fi && opkg update && opkg install luci luci-base luci-compat"
 # 按正确顺序启动服务
 docker exec openwrt-luci /sbin/ubusd &
 sleep 1
@@ -46,7 +46,7 @@ docker exec openwrt-luci ubus list | grep -E "system|luci|tailscale"
 # 方式2：一键启动脚本（适合快速验证）
 docker run -d --name openwrt-luci -p 8080:80 openwrt/rootfs:x86-64-25.12.0-rc4 /bin/ash -c '
 mkdir -p /var/lock /var/run
-./setup.sh
+[ -x /setup.sh ] && /setup.sh
 opkg update && opkg install luci luci-base luci-compat
 # 关键：按顺序启动服务
 /sbin/ubusd &

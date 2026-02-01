@@ -116,7 +116,16 @@ jobs:
           # 2. Run update to populate package lists
           # 3. Install a small package ('file') to verify installation works
           # All running in the same container shell to persist state
-          OPKG_TEST_CMD="if [ -x ./setup.sh ]; then ./setup.sh; fi && mkdir -p /var/lock/ && opkg update && opkg install file && which file && echo 'Package installation verified!'"
+          SETUP_CMD="if [ -x /setup.sh ]; then /setup.sh; fi"
+          OPKG_TEST_CMD=$(cat <<EOF
+          ${SETUP_CMD}
+          mkdir -p /var/lock/
+          opkg update
+          opkg install file
+          which file
+          echo 'Package installation verified!'
+          EOF
+          )
           
           if docker run --rm openwrt/rootfs:x86-64-25.12.0-rc4 /bin/ash -c "$OPKG_TEST_CMD"; then
             echo "opkg update and install succeeded"
@@ -129,7 +138,7 @@ jobs:
           
           # Test 5: Test network connectivity from container (via HTTP/TCP)
           echo "Test 5: Testing network connectivity via HTTP..."
-          if docker run --rm openwrt/rootfs:x86-64-25.12.0-rc4 /bin/ash -c "if [ -x ./setup.sh ]; then ./setup.sh; fi && wget -q --spider http://www.google.com"; then
+          if docker run --rm openwrt/rootfs:x86-64-25.12.0-rc4 /bin/ash -c "$SETUP_CMD && wget -q --spider http://www.google.com"; then
             echo "Network connectivity: Available (TCP/HTTP)"
           else
             echo "Network connectivity: Restricted or no internet access"
@@ -142,24 +151,26 @@ jobs:
           CONTAINER_NAME="openwrt-luci-test-$$"
           
           # Start container with all services in correct order
-          docker run -d --name "$CONTAINER_NAME" -p 8080:80 openwrt/rootfs:x86-64-25.12.0-rc4 /bin/ash -c '
-            mkdir -p /var/lock /var/run
-            if [ -x ./setup.sh ]; then ./setup.sh; fi
-            opkg update && opkg install luci luci-base luci-compat
-            # Critical: Start services in correct order
-            /sbin/ubusd &
-            sleep 1
-            /sbin/procd &
-            sleep 2
-            /sbin/rpcd &
-            sleep 1
-            /usr/sbin/uhttpd -f -h /www -r OpenWrt -x /cgi-bin -u /ubus -t 60 -T 30 -A 1 -n 3 -N 100 -R -p 0.0.0.0:80 &
-            # Set password
-            echo -e "password\npassword" | passwd root
-            # Configure theme
-            uci set luci.themes.Bootstrap=/luci-static/bootstrap && uci commit luci
-            tail -f /dev/null
-          '
+          LUCI_START_CMD=$(cat <<EOF
+          mkdir -p /var/lock /var/run
+          ${SETUP_CMD}
+          opkg update && opkg install luci luci-base luci-compat
+          # Critical: Start services in correct order
+          /sbin/ubusd &
+          sleep 1
+          /sbin/procd &
+          sleep 2
+          /sbin/rpcd &
+          sleep 1
+          /usr/sbin/uhttpd -f -h /www -r OpenWrt -x /cgi-bin -u /ubus -t 60 -T 30 -A 1 -n 3 -N 100 -R -p 0.0.0.0:80 &
+          # Set password
+          echo -e "password\npassword" | passwd root
+          # Configure theme
+          uci set luci.themes.Bootstrap=/luci-static/bootstrap && uci commit luci
+          tail -f /dev/null
+          EOF
+          )
+          docker run -d --name "$CONTAINER_NAME" -p 8080:80 openwrt/rootfs:x86-64-25.12.0-rc4 /bin/ash -c "$LUCI_START_CMD"
           
           # Wait for container to be ready
           echo "Waiting for LuCI to be ready..."
