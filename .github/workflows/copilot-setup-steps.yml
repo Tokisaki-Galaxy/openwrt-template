@@ -19,7 +19,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Clone LuCI repository for i18n
+      - name: Clone LuCI repository
         uses: actions/checkout@v5
         with:
           repository: openwrt/luci
@@ -29,13 +29,13 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           cache: ${{ (hashFiles('package-lock.json') != '' || hashFiles('npm-shrinkwrap.json') != '') && 'npm' || '' }}
 
       - name: Install System Utilities
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq xvfb tree ripgrep
+          sudo apt-get install -y jq xvfb tree ripgrep git
 
       # OpenWrt Docker 环境配置
       - name: Set up Docker Buildx
