@@ -6,11 +6,12 @@
     - `ripgrep` (高性能文本搜索)
     - **Playwright (Chromium)**：优先用于验证渲染、执行 E2E 测试或查看动态内容。
  - **OpenWrt 调试环境**：
-    - **Docker 镜像**：已预装并缓存 `openwrt/rootfs:x86-64-24.10.4` 镜像（包含完整的 `opkg` 源）。
+    - **Docker 镜像**：已预装并缓存 `openwrt/rootfs:x86-64-25.12.0-rc4` 镜像（包含完整的 `apk` 源）。
     - **LuCI 源码**：项目根目录下已克隆 `openwrt/luci` 仓库 (depth=1)，用于同步 `.po` 翻译文件。
     - **跨架构支持**：`qemu-user-static` 和 `binfmt-support` 用于模拟不同 CPU 架构
     - **编译工具链**：`build-essential`, `ccache`, `gawk`, `gettext`, `libncurses5-dev`, `libssl-dev`, `rsync`, `unzip`, `zlib1g-dev`
     - **网络调试工具**：`socat`, `netcat-openbsd`, `sshpass`
+    - **注意**：OpenWrt 25.x 版本使用 `apk` 包管理器替代了旧版的 `opkg`
 ### ⚠️ 关键：LuCI 服务启动顺序
 LuCI Web界面依赖多个服务，**必须按以下顺序启动**：
 1. **ubusd** - ubus 消息总线（所有 ubus 服务的基础）
@@ -23,9 +24,9 @@ LuCI Web界面依赖多个服务，**必须按以下顺序启动**：
 ### 启动 LuCI 环境的推荐方式
 ```bash
 # 方式1：后台启动容器后手动启动服务（推荐用于调试）
-docker run -d --name openwrt-luci -p 8080:80 openwrt/rootfs:x86-64-24.10.4 tail -f /dev/null
-# 进入容器安装 LuCI
-docker exec openwrt-luci sh -c "mkdir -p /var/lock /var/run && opkg update && opkg install luci luci-base luci-compat"
+docker run -d --name openwrt-luci -p 8080:80 openwrt/rootfs:x86-64-25.12.0-rc4 tail -f /dev/null
+# 进入容器安装 LuCI（注意：OpenWrt 25.x 使用 apk 替代 opkg）
+docker exec openwrt-luci sh -c "mkdir -p /var/lock /var/run && apk update && apk add luci luci-base luci-compat"
 # 按正确顺序启动服务
 docker exec openwrt-luci /sbin/ubusd &
 sleep 1
@@ -44,9 +45,9 @@ docker exec openwrt-luci ubus list | grep -E "system|luci|tailscale"
 ```
 ```bash
 # 方式2：一键启动脚本（适合快速验证）
-docker run -d --name openwrt-luci -p 8080:80 openwrt/rootfs:x86-64-24.10.4 /bin/ash -c '
+docker run -d --name openwrt-luci -p 8080:80 openwrt/rootfs:x86-64-25.12.0-rc4 /bin/ash -c '
 mkdir -p /var/lock /var/run
-opkg update && opkg install luci luci-base luci-compat
+apk update && apk add luci luci-base luci-compat
 # 关键：按顺序启动服务
 /sbin/ubusd &
 sleep 1
